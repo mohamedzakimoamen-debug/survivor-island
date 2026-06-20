@@ -1,1 +1,1343 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>جزيرة الناجي - Survivor's Island</title>
+    <style>
+        :root {
+            --safe-bottom: env(safe-area-inset-bottom, 8px);
+            --safe-top: env(safe-area-inset-top, 8px);
+        }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-webkit-user-select: none;
+        }
+
+        body {
+            background: #000;
+            overflow: hidden;
+            touch-action: manipulation;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            font-family: 'Arial', sans-serif;
+            overscroll-behavior: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* شاشة البداية */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+        #startScreen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #startBox {
+            background: linear-gradient(180deg, #1a3a2a 0%, #0d1f14 100%);
+            border: 2px solid #4a8c5c;
+            border-radius: 20px;
+            padding: 20px 18px;
+            text-align: center;
+            color: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            max-width: 90vw;
+            width: 340px;
+        }
+        #startBox h1 {
+            font-size: 1.4em;
+            margin-bottom: 5px;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        #startBox .emoji-title {
+            font-size: 2.5em;
+            display: block;
+            margin: 5px 0;
+        }
+        #startBox p {
+            color: #ccc;
+            font-size: 0.8em;
+            margin: 3px 0;
+            line-height: 1.4;
+        }
+        #startBox .highlight {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        #startBox button {
+            margin-top: 12px;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            background: linear-gradient(180deg, #ff9800, #e65100);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.5);
+            transition: all 0.2s;
+        }
+        #startBox button:active {
+            transform: scale(0.93);
+            box-shadow: 0 3px 10px rgba(255, 152, 0, 0.3);
+        }
+
+        /* شاشة الموت */
+        #deathScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            background: rgba(139, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        #deathScreen.active {
+            display: flex;
+        }
+        #deathBox {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #ff4444;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            color: #fff;
+        }
+        #deathBox h2 {
+            color: #ff4444;
+            margin-bottom: 10px;
+        }
+        #deathBox button {
+            padding: 10px 25px;
+            font-size: 1em;
+            background: #ff4444;
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        /* رسالة */
+        #message {
+            position: fixed;
+            top: 15%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 15;
+            color: #fff;
+            font-size: 0.9em;
+            font-weight: bold;
+            text-shadow: 0 0 8px #000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 15px;
+            border-radius: 15px;
+            white-space: nowrap;
+        }
+        #message.show {
+            opacity: 1;
+        }
+
+        /* شريط الحالة */
+        #statusBar {
+            position: fixed;
+            top: calc(10px + var(--safe-top));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .statusItem {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 8px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.65em;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+        }
+        .statusBar {
+            width: 30px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .statusBarFill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s;
+        }
+        .healthFill {
+            background: #ff4444;
+        }
+        .hungerFill {
+            background: #ff9800;
+        }
+        .warmthFill {
+            background: #ff9800;
+        }
+        #timeIndicator {
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 0.7em;
+        }
+
+        /* شريط الأدوات */
+        #hotbar {
+            position: fixed;
+            bottom: calc(80px + var(--safe-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 3px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 6px;
+            border-radius: 8px;
+            border: 1.5px solid #555;
+            pointer-events: auto;
+            overflow-x: auto;
+            max-width: 95vw;
+            -webkit-overflow-scrolling: touch;
+        }
+        .slot {
+            min-width: 32px;
+            width: 32px;
+            height: 32px;
+            border: 2px solid #777;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(20, 20, 20, 0.8);
+            flex-shrink: 0;
+            font-size: 1.2em;
+            transition: all 0.15s;
+        }
+        .slot.selected {
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transform: scale(1.15);
+            background: rgba(50, 40, 10, 0.8);
+        }
+
+        /* جويستيكات */
+        .joystickContainer {
+            position: fixed;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        #moveJoystick {
+            bottom: 100px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+        }
+        #lookJoystick {
+            bottom: 100px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+        }
+        .joystickBase {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+        }
+        .joystickThumb {
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            transition: background 0.1s;
+        }
+        #lookThumb {
+            background: rgba(255, 200, 100, 0.55);
+        }
+
+        /* أزرار الحركة */
+        .actionBtns {
+            position: fixed;
+            z-index: 10;
+            pointer-events: auto;
+            display: flex;
+            gap: 15px;
+        }
+        #bottomActions {
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            gap: 20px;
+        }
+        .actionBtn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2.5px solid rgba(255, 255, 255, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.1s;
+            cursor: pointer;
+        }
+        .actionBtn:active {
+            transform: scale(0.82);
+            background: rgba(255, 255, 255, 0.25);
+        }
+        #jumpBtn {
+            position: fixed;
+            bottom: 50px;
+            right: 25px;
+            z-index: 10;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- شاشة البداية -->
+    <div id="startScreen">
+        <div id="startBox">
+            <span class="emoji-title">🏝️</span>
+            <h1>جزيرة الناجي</h1>
+            <p>🎯 <span class="highlight">ابنِ مأواك</span> قبل حلول الليل!</p>
+            <p>👹 <span class="highlight">وحوش الليل</span> تخرج في الظلام</p>
+            <p>🔥 أشعل نارًا لتدفئتك وحمايتك</p>
+            <p>🧘 استلقِ وتأمل تحت <span class="highlight">النجوم</span></p>
+            <p style="font-size:0.7em;color:#aaa;">🕹️ جويستيك شمال=حركة | جويستيك يمين=نظر</p>
+            <button id="startBtn">🎮 ابدأ المغامرة</button>
+        </div>
+    </div>
+
+    <!-- شاشة الموت -->
+    <div id="deathScreen">
+        <div id="deathBox">
+            <h2>💀 لقد هاجمتك الوحوش!</h2>
+            <p>لم تبني مأوى في الوقت المناسب</p>
+            <p style="font-size:0.8em;color:#aaa;">نصيحة: ابنِ جدرانًا وأشعل نارًا قبل الليل</p>
+            <button id="respawnBtn">🔄 حاول مجددًا</button>
+        </div>
+    </div>
+
+    <!-- رسالة -->
+    <div id="message"></div>
+
+    <!-- شريط الحالة -->
+    <div id="statusBar">
+        <div class="statusItem">❤️<div class="statusBar"><div class="statusBarFill healthFill" id="healthBar" style="width:100%"></div></div></div>
+        <div class="statusItem">🍖<div class="statusBar"><div class="statusBarFill hungerFill" id="hungerBar" style="width:100%"></div></div></div>
+        <div class="statusItem">🌡️<div class="statusBar"><div class="statusBarFill warmthFill" id="warmthBar" style="width:100%"></div></div></div>
+        <div class="statusItem" id="timeIndicator">☀️ نهار</div>
+    </div>
+
+    <!-- شريط الأدوات -->
+    <div id="hotbar">
+        <div class="slot selected" data-slot="0">🪓</div>
+        <div class="slot" data-slot="1">🪨</div>
+        <div class="slot" data-slot="2">🪵</div>
+        <div class="slot" data-slot="3">🧱</div>
+        <div class="slot" data-slot="4">🔥</div>
+        <div class="slot" data-slot="5">🧘</div>
+    </div>
+
+    <!-- جويستيك الحركة -->
+    <div class="joystickContainer" id="moveJoystick">
+        <div class="joystickBase" id="moveBase">
+            <div class="joystickThumb" id="moveThumb"></div>
+        </div>
+    </div>
+
+    <!-- جويستيك الكاميرا -->
+    <div class="joystickContainer" id="lookJoystick">
+        <div class="joystickBase" id="lookBase">
+            <div class="joystickThumb" id="lookThumb"></div>
+        </div>
+    </div>
+
+    <!-- أزرار -->
+    <div class="actionBtns" id="bottomActions">
+        <div class="actionBtn" id="breakBtn">⛏️</div>
+        <div class="actionBtn" id="buildBtn">🏗️</div>
+    </div>
+    <div class="actionBtn" id="jumpBtn">🦘</div>
+
+    <!-- لوحة الرسم -->
+    <div id="gameCanvas"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js">
+    </script>
+
+    <script>
+        // ==================== الإعدادات الرئيسية ====================
+        const WORLD_SIZE = 20;
+        const MAX_HEIGHT = 10;
+        const ISLAND_RADIUS = 9;
+        const PLAYER_HEIGHT = 1.6;
+        const PLAYER_WIDTH = 0.5;
+        const GRAVITY = 18;
+        const JUMP_VELOCITY = 8;
+        const MOVE_SPEED = 5.5;
+        const LOOK_SENSITIVITY = 0.012;
+        const REACH_DISTANCE = 5.5;
+        const DAY_CYCLE_SECONDS = 480; // 8 دقائق لليوم الكامل
+        const NIGHT_MONSTER_SPAWN_INTERVAL = 15; // ثواني بين ظهور الوحوش بالليل
+
+        // ==================== المتغيرات العامة ====================
+        let scene, camera, renderer, clock;
+        let playerPosition, playerVelocity, playerRotation;
+        let isOnGround = false;
+        let gameTime = 0; // 0 إلى DAY_CYCLE_SECONDS
+        let isNight = false;
+        let selectedSlot = 0;
+        let health = 100;
+        let hunger = 100;
+        let warmth = 100;
+        let isMeditating = false;
+        let isDead = false;
+        let gameStarted = false;
+        let monsters = [];
+        let placedBlocks = []; // blocks player built
+        let campfirePosition = null;
+        let campfireLit = false;
+
+        // مدخلات الجويستيك
+        let moveInput = { x: 0, z: 0 };
+        let lookInput = { x: 0, y: 0 };
+        let jumpRequested = false;
+        let breakRequested = false;
+        let buildRequested = false;
+        let meditateRequested = false;
+
+        // ==================== إنشاء المشهد ====================
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#87CEEB');
+            scene.fog = new THREE.Fog('#c8e0f4', 25, 50);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 60);
+            camera.position.set(WORLD_SIZE / 2, 6, WORLD_SIZE / 2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            document.getElementById('gameCanvas').appendChild(renderer.domElement);
+
+            // إضاءة أساسية
+            const ambientLight = new THREE.AmbientLight('#8899bb', 0.8);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight('#fff8e7', 2.5);
+            sunLight.position.set(20, 25, 15);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 1024;
+            sunLight.shadow.mapSize.height = 1024;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 55;
+            sunLight.shadow.camera.left = -20;
+            sunLight.shadow.camera.right = 20;
+            sunLight.shadow.camera.top = 20;
+            sunLight.shadow.camera.bottom = -20;
+            sunLight.shadow.bias = -0.0004;
+            scene.add(sunLight);
+            window.sunLight = sunLight;
+
+            clock = new THREE.Clock();
+        }
+
+        // ==================== إنشاء الجزيرة ====================
+        function createIsland() {
+            // البحر
+            const waterGeo = new THREE.CircleGeometry(25, 64);
+            const waterMat = new THREE.MeshStandardMaterial({
+                color: '#2980b9',
+                roughness: 0.3,
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.85,
+            });
+            const water = new THREE.Mesh(waterGeo, waterMat);
+            water.rotation.x = -Math.PI / 2;
+            water.position.y = 0.2;
+            water.receiveShadow = true;
+            scene.add(water);
+            window.waterMesh = water;
+
+            // رمال الشاطئ
+            const sandGeo = new THREE.CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS + 1.5, 0.5, 48);
+            const sandMat = new THREE.MeshStandardMaterial({ color: '#f4d03f', roughness: 0.7 });
+            const sand = new THREE.Mesh(sandGeo, sandMat);
+            sand.position.y = 0.25;
+            sand.receiveShadow = true;
+            sand.castShadow = true;
+            scene.add(sand);
+
+            // تربة الجزيرة
+            const groundGeo = new THREE.CylinderGeometry(ISLAND_RADIUS - 0.3, ISLAND_RADIUS, 1.5, 48);
+            const groundMat = new THREE.MeshStandardMaterial({ color: '#8b6914', roughness: 0.8 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.position.y = 0.4;
+            ground.receiveShadow = true;
+            ground.castShadow = true;
+            scene.add(ground);
+
+            // سطح أخضر
+            const grassGeo = new THREE.CylinderGeometry(ISLAND_RADIUS - 0.8, ISLAND_RADIUS - 0.3, 0.3, 48);
+            const grassMat = new THREE.MeshStandardMaterial({ color: '#5d9b2e', roughness: 0.7 });
+            const grass = new THREE.Mesh(grassGeo, grassMat);
+            grass.position.y = 1.15;
+            grass.receiveShadow = true;
+            scene.add(grass);
+
+            // صخور على الشاطئ
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const radius = ISLAND_RADIUS - 1 + Math.random() * 1.5;
+                const rockGeo = new THREE.SphereGeometry(0.3 + Math.random() * 0.5, 8, 6);
+                const rockMat = new THREE.MeshStandardMaterial({ color: '#7f7f7f', roughness: 0.6 });
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                rock.position.set(
+                    Math.cos(angle) * radius,
+                    0.4,
+                    Math.sin(angle) * radius
+                );
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                rock.userData = { type: 'rock', health: 3 };
+                scene.add(rock);
+            }
+
+            // أشجار نخيل
+            for (let i = 0; i < 7; i++) {
+                const angle = (i / 7) * Math.PI * 2 + Math.random() * 0.5;
+                const radius = 2 + Math.random() * (ISLAND_RADIUS - 4);
+                createPalmTree(
+                    Math.cos(angle) * radius,
+                    1.2,
+                    Math.sin(angle) * radius
+                );
+            }
+
+            // نباتات صغيرة
+            for (let i = 0; i < 15; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 1.5 + Math.random() * (ISLAND_RADIUS - 3);
+                const bushGeo = new THREE.SphereGeometry(0.2 + Math.random() * 0.3, 8, 6);
+                const bushMat = new THREE.MeshStandardMaterial({ color: '#3a7d20', roughness: 0.6 });
+                const bush = new THREE.Mesh(bushGeo, bushMat);
+                bush.position.set(
+                    Math.cos(angle) * radius,
+                    1.25,
+                    Math.sin(angle) * radius
+                );
+                bush.castShadow = true;
+                bush.receiveShadow = true;
+                scene.add(bush);
+            }
+        }
+
+        function createPalmTree(x, y, z) {
+            const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 2.5, 12);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: '#b8945c', roughness: 0.7 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.set(x, y + 1.25, z);
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            trunk.userData = { type: 'tree', health: 5 };
+            scene.add(trunk);
+
+            // أوراق النخيل
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const leafGeo = new THREE.ConeGeometry(0.6, 0.15, 8);
+                const leafMat = new THREE.MeshStandardMaterial({ color: '#3a7d20', roughness: 0.5, side: THREE
+                        .DoubleSide });
+                const leaf = new THREE.Mesh(leafGeo, leafMat);
+                leaf.position.set(x, y + 2.6, z);
+                leaf.rotation.z = Math.cos(angle) * 0.7;
+                leaf.rotation.x = Math.sin(angle) * 0.7;
+                leaf.rotation.y = angle;
+                leaf.castShadow = true;
+                scene.add(leaf);
+            }
+            // قمة النخلة
+            const topGeo = new THREE.SphereGeometry(0.4, 8, 6);
+            const topMat = new THREE.MeshStandardMaterial({ color: '#2d6b15', roughness: 0.5 });
+            const top = new THREE.Mesh(topGeo, topMat);
+            top.position.set(x, y + 2.5, z);
+            top.castShadow = true;
+            scene.add(top);
+        }
+
+        // ==================== النجوم ====================
+        function createStars() {
+            const starsGeo = new THREE.BufferGeometry();
+            const starsCount = 500;
+            const starsPositions = new Float32Array(starsCount * 3);
+            for (let i = 0; i < starsCount * 3; i += 3) {
+                starsPositions[i] = (Math.random() - 0.5) * 60;
+                starsPositions[i + 1] = 15 + Math.random() * 25;
+                starsPositions[i + 2] = (Math.random() - 0.5) * 60;
+            }
+            starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPositions, 3));
+            const starsMat = new THREE.PointsMaterial({
+                color: '#ffffff',
+                size: 0.15,
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+            });
+            const stars = new THREE.Points(starsGeo, starsMat);
+            stars.name = 'stars';
+            scene.add(stars);
+            window.starsMesh = stars;
+        }
+
+        // ==================== وحوش ====================
+        function spawnMonster() {
+            if (!isNight || isDead) return;
+            const angle = Math.random() * Math.PI * 2;
+            const radius = ISLAND_RADIUS + 2;
+            const monsterGeo = new THREE.ConeGeometry(0.5, 1.8, 6);
+            const monsterMat = new THREE.MeshStandardMaterial({
+                color: '#1a0000',
+                roughness: 0.4,
+                emissive: '#330000',
+                emissiveIntensity: 0.3,
+            });
+            const monster = new THREE.Mesh(monsterGeo, monsterMat);
+            monster.position.set(
+                Math.cos(angle) * radius,
+                0.6,
+                Math.sin(angle) * radius
+            );
+            monster.castShadow = true;
+            monster.userData = {
+                type: 'monster',
+                health: 2,
+                speed: 1.5 + Math.random() * 2,
+                damage: 8 + Math.random() * 12,
+            };
+            scene.add(monster);
+            monsters.push(monster);
+
+            // عيون حمراء
+            const eyeGeo = new THREE.SphereGeometry(0.1, 4, 4);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: '#ff0000' });
+            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye1.position.set(0.15, 0.6, 0.35);
+            monster.add(eye1);
+            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye2.position.set(-0.15, 0.6, 0.35);
+            monster.add(eye2);
+        }
+
+        function updateMonsters(deltaTime) {
+            if (!isNight || isDead) return;
+            for (let i = monsters.length - 1; i >= 0; i--) {
+                const monster = monsters[i];
+                const dx = playerPosition.x - monster.position.x;
+                const dz = playerPosition.z - monster.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                // التحرك نحو اللاعب
+                if (dist < 10 && dist > 0.8) {
+                    const speed = monster.userData.speed * deltaTime;
+                    monster.position.x += (dx / dist) * speed;
+                    monster.position.z += (dz / dist) * speed;
+                    monster.lookAt(playerPosition.x, monster.position.y, playerPosition.z);
+                }
+
+                // هجوم
+                if (dist < 1.5 && !isMeditating) {
+                    health -= monster.userData.damage * deltaTime;
+                    if (health <= 0 && !isDead) {
+                        die();
+                    }
+                }
+
+                // لو اللاعب بيتأمل، الوحوش تتراجع
+                if (isMeditating && dist < 4) {
+                    monster.position.x -= (dx / dist) * 3 * deltaTime;
+                    monster.position.z -= (dz / dist) * 3 * deltaTime;
+                }
+
+                // لو قريب من النار المشتعلة، يختفي
+                if (campfireLit && campfirePosition && dist < 3) {
+                    scene.remove(monster);
+                    monsters.splice(i, 1);
+                }
+            }
+        }
+
+        function die() {
+            isDead = true;
+            health = 0;
+            document.getElementById('deathScreen').classList.add('active');
+            // إيقاف اللعبة مؤقتاً
+            cancelAnimationFrame(animationId);
+            document.getElementById('deathScreen').style.display = 'flex';
+        }
+
+        function respawn() {
+            isDead = false;
+            health = 100;
+            hunger = 100;
+            warmth = 100;
+            playerPosition = { x: WORLD_SIZE / 2, y: 2.5, z: WORLD_SIZE / 2 };
+            playerVelocity = { x: 0, y: 0, z: 0 };
+            isMeditating = false;
+            // إزالة الوحوش
+            for (const m of monsters) scene.remove(m);
+            monsters = [];
+            document.getElementById('deathScreen').classList.remove('active');
+            document.getElementById('deathScreen').style.display = 'none';
+            animationId = requestAnimationFrame(gameLoop);
+            showMessage('لقد عدت للحياة! ابنِ مأوى بسرعة!');
+        }
+
+        // ==================== دورة اليوم ====================
+        function updateDayCycle(deltaTime) {
+            gameTime += deltaTime;
+            if (gameTime >= DAY_CYCLE_SECONDS) gameTime -= DAY_CYCLE_SECONDS;
+
+            const dayProgress = gameTime / DAY_CYCLE_SECONDS;
+            const wasNight = isNight;
+            isNight = dayProgress > 0.65 || dayProgress < 0.15;
+
+            // تغيير لون السماء
+            let skyColor, fogColor, ambientIntensity, sunIntensity, starsOpacity;
+            if (dayProgress < 0.1) {
+                // شروق
+                const t = dayProgress / 0.1;
+                skyColor = new THREE.Color().lerpColors(
+                    new THREE.Color('#1a1a3a'),
+                    new THREE.Color('#ff9966'),
+                    t
+                );
+                ambientIntensity = 0.4 + t * 0.4;
+                sunIntensity = 0.5 + t * 2;
+                starsOpacity = 1 - t;
+            } else if (dayProgress < 0.5) {
+                // نهار
+                skyColor = new THREE.Color('#87CEEB');
+                ambientIntensity = 0.8;
+                sunIntensity = 2.5;
+                starsOpacity = 0;
+            } else if (dayProgress < 0.65) {
+                // غروب
+                const t = (dayProgress - 0.5) / 0.15;
+                skyColor = new THREE.Color().lerpColors(
+                    new THREE.Color('#87CEEB'),
+                    new THREE.Color('#ff4444'),
+                    t
+                );
+                ambientIntensity = 0.8 - t * 0.4;
+                sunIntensity = 2.5 - t * 2;
+                starsOpacity = t;
+            } else if (dayProgress < 0.9) {
+                // ليل
+                skyColor = new THREE.Color('#0a0a1a');
+                ambientIntensity = 0.3;
+                sunIntensity = 0.3;
+                starsOpacity = 1;
+            } else {
+                // قبل الفجر
+                skyColor = new THREE.Color('#1a1a3a');
+                ambientIntensity = 0.35;
+                sunIntensity = 0.4;
+                starsOpacity = 0.9;
+            }
+
+            scene.background = skyColor;
+            scene.fog = new THREE.Fog(skyColor, 20, 45);
+            if (window.sunLight) {
+                window.sunLight.intensity = sunIntensity;
+                // تحريك الشمس
+                const sunAngle = dayProgress * Math.PI * 2;
+                window.sunLight.position.set(
+                    Math.cos(sunAngle) * 25,
+                    10 + Math.sin(sunAngle) * 20,
+                    Math.sin(sunAngle) * 15
+                );
+            }
+            const ambientLight = scene.children.find(c => c instanceof THREE.AmbientLight);
+            if (ambientLight) ambientLight.intensity = ambientIntensity;
+
+            // النجوم
+            if (window.starsMesh) {
+                window.starsMesh.material.opacity = starsOpacity;
+            }
+
+            // تحديث مؤشر الوقت
+            const timeIndicator = document.getElementById('timeIndicator');
+            if (isNight) {
+                timeIndicator.textContent = '🌙 ليل';
+                timeIndicator.style.color = '#aaaaff';
+            } else if (dayProgress < 0.1) {
+                timeIndicator.textContent = '🌅 شروق';
+                timeIndicator.style.color = '#ff9966';
+            } else if (dayProgress > 0.5 && dayProgress < 0.65) {
+                timeIndicator.textContent = '🌅 غروب';
+                timeIndicator.style.color = '#ff6666';
+            } else {
+                timeIndicator.textContent = '☀️ نهار';
+                timeIndicator.style.color = '#ffd700';
+            }
+
+            // درجة الحرارة
+            if (isNight) {
+                if (!campfireLit || !campfirePosition ||
+                    Math.sqrt((playerPosition.x - (campfirePosition?.x || 0)) ** 2 + (playerPosition.z - (campfirePosition
+                        ?.z || 0)) ** 2) > 3) {
+                    warmth -= 3 * deltaTime;
+                    if (warmth < 0) warmth = 0;
+                } else {
+                    warmth = Math.min(100, warmth + 15 * deltaTime);
+                }
+            } else {
+                warmth = Math.min(100, warmth + 5 * deltaTime);
+            }
+
+            // الجوع
+            hunger -= 1.5 * deltaTime;
+            if (hunger < 0) {
+                hunger = 0;
+                health -= 3 * deltaTime;
+            }
+
+            // الصحة
+            if (health <= 0 && !isDead) die();
+
+            // وحوش
+            if (isNight && !wasNight && !isDead) {
+                showMessage('⚠️ حل الليل! الوحوش تستيقظ!');
+                for (let i = 0; i < 4; i++) setTimeout(() => spawnMonster(), i * 2000);
+            }
+            if (isNight && !isDead && Math.random() < deltaTime / NIGHT_MONSTER_SPAWN_INTERVAL && monsters.length < 8) {
+                spawnMonster();
+            }
+            if (!isNight && monsters.length > 0) {
+                for (const m of monsters) scene.remove(m);
+                monsters = [];
+            }
+        }
+
+        // ==================== اللاعب ====================
+        function getPlayerBB(pos) {
+            const hw = PLAYER_WIDTH / 2;
+            return {
+                minX: pos.x - hw,
+                maxX: pos.x + hw,
+                minY: pos.y,
+                maxY: pos.y + 1.7,
+                minZ: pos.z - hw,
+                maxZ: pos.z + hw,
+            };
+        }
+
+        function checkCollision(pos) {
+            const bb = getPlayerBB(pos);
+            // فحص المباني الموضوعة
+            for (const block of placedBlocks) {
+                const bbb = { minX: block.x, maxX: block.x + 1, minY: block.y, maxY: block.y + 1, minZ: block.z,
+                    maxZ: block.z + 1 };
+                if (bb.maxX > bbb.minX && bb.minX < bbb.maxX &&
+                    bb.maxY > bbb.minY && bb.minY < bbb.maxY &&
+                    bb.maxZ > bbb.minZ && bb.minZ < bbb.maxZ) return true;
+            }
+            // حدود الجزيرة
+            const dist = Math.sqrt(pos.x ** 2 + pos.z ** 2);
+            if (dist > ISLAND_RADIUS - 0.7) return true;
+            // تحت الأرض
+            if (pos.y < 0.2) return true;
+            // فوق السقف
+            if (pos.y > 8) return true;
+            return false;
+        }
+
+        function updatePlayer(deltaTime) {
+            if (isDead || isMeditating) return;
+            const dt = Math.min(deltaTime, 0.15);
+
+            // حركة
+            const yaw = playerRotation.yaw;
+            const fwdX = Math.sin(yaw);
+            const fwdZ = Math.cos(yaw);
+            const rightX = Math.cos(yaw);
+            const rightZ = -Math.sin(yaw);
+
+            const moveX = moveInput.z * fwdX + moveInput.x * rightX;
+            const moveZ = moveInput.z * fwdZ + moveInput.x * rightZ;
+            const mag = Math.sqrt(moveX ** 2 + moveZ ** 2);
+            const mx = mag > 1 ? moveX / mag : moveX;
+            const mz = mag > 1 ? moveZ / mag : moveZ;
+
+            playerVelocity.x = mx * MOVE_SPEED;
+            playerVelocity.z = mz * MOVE_SPEED;
+
+            if (!isOnGround) playerVelocity.y -= GRAVITY * dt;
+            else playerVelocity.y = Math.min(playerVelocity.y, 0);
+
+            if (jumpRequested && isOnGround) {
+                playerVelocity.y = JUMP_VELOCITY;
+                isOnGround = false;
+                jumpRequested = false;
+            }
+
+            const newPos = { ...playerPosition };
+            newPos.x += playerVelocity.x * dt;
+            if (checkCollision(newPos)) { newPos.x = playerPosition.x;
+                playerVelocity.x = 0; }
+            newPos.y += playerVelocity.y * dt;
+            if (checkCollision(newPos)) {
+                if (playerVelocity.y < 0) isOnGround = true;
+                newPos.y = playerPosition.y;
+                playerVelocity.y = 0;
+            } else isOnGround = false;
+            newPos.z += playerVelocity.z * dt;
+            if (checkCollision(newPos)) { newPos.z = playerPosition.z;
+                playerVelocity.z = 0; }
+
+            playerPosition = newPos;
+            const gc = { ...playerPosition, y: playerPosition.y - 0.05 };
+            if (checkCollision(gc)) isOnGround = true;
+
+            // دوران الكاميرا
+            playerRotation.yaw += lookInput.x * LOOK_SENSITIVITY;
+            playerRotation.pitch += lookInput.y * LOOK_SENSITIVITY;
+            playerRotation.pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, playerRotation.pitch));
+
+            camera.position.set(playerPosition.x, playerPosition.y + PLAYER_HEIGHT, playerPosition.z);
+            const ld = new THREE.Vector3(
+                Math.sin(playerRotation.yaw) * Math.cos(playerRotation.pitch),
+                Math.sin(playerRotation.pitch),
+                Math.cos(playerRotation.yaw) * Math.cos(playerRotation.pitch)
+            );
+            camera.lookAt(playerPosition.x + ld.x, playerPosition.y + PLAYER_HEIGHT + ld.y, playerPosition.z + ld.z);
+        }
+
+        // ==================== تأمل ====================
+        function toggleMeditate() {
+            if (isDead) return;
+            isMeditating = !isMeditating;
+            if (isMeditating) {
+                playerRotation.pitch = -Math.PI / 3; // بص لفوق
+                showMessage('🧘 أنت تتأمل... النجوم تحميك');
+                // تهدئة الوحوش
+            } else {
+                playerRotation.pitch = -0.2;
+                showMessage('🧘 انتهى التأمل');
+            }
+        }
+
+        // ==================== بناء وكسر ====================
+        function getTargetBlock() {
+            const raycaster = new THREE.Raycaster();
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            raycaster.set(camera.position, dir);
+            raycaster.far = REACH_DISTANCE;
+
+            const targets = [];
+            // كل الميشات في المشهد
+            scene.traverse(child => {
+                if (child.isMesh && child.userData.type && ['tree', 'rock'].includes(child.userData.type)) {
+                    targets.push(child);
+                }
+            });
+            // كمان المباني
+            for (const block of placedBlocks) {
+                if (block.mesh) targets.push(block.mesh);
+            }
+
+            const intersects = raycaster.intersectObjects(targets, false);
+            if (intersects.length > 0) {
+                const obj = intersects[0].object;
+                const point = intersects[0].point;
+                const normal = intersects[0].face.normal.clone();
+                normal.transformDirection(obj.matrixWorld);
+                return {
+                    object: obj,
+                    point: point,
+                    normal: normal,
+                    position: obj.position.clone(),
+                    userData: obj.userData,
+                };
+            }
+            return null;
+        }
+
+        function breakBlock() {
+            const target = getTargetBlock();
+            if (!target) return;
+            const ud = target.userData;
+            if (ud.type === 'tree' || ud.type === 'rock') {
+                ud.health--;
+                showMessage(`⛏️ ${ud.type === 'tree' ? 'شجرة' : 'صخرة'} : ${ud.health} ضربات متبقية`);
+                if (ud.health <= 0) {
+                    scene.remove(target.object);
+                    showMessage(`✅ جمعت ${ud.type === 'tree' ? 'خشب' : 'حجر'}!`);
+                    // إضافة مورد للاعب (هنا بنكتفي بالرسالة)
+                }
+            } else if (ud.type === 'placed_block') {
+                // كسر بناء
+                const idx = placedBlocks.findIndex(b => b.mesh === target.object);
+                if (idx >= 0) {
+                    scene.remove(placedBlocks[idx].mesh);
+                    placedBlocks.splice(idx, 1);
+                    showMessage('🧱 كسرت كتلة بناء');
+                }
+            }
+        }
+
+        function buildBlock() {
+            const raycaster = new THREE.Raycaster();
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            raycaster.set(camera.position, dir);
+            raycaster.far = REACH_DISTANCE;
+
+            // نبحث عن أي سطح (أرض، مباني، صخور، أشجار)
+            const allObjects = [];
+            scene.traverse(c => { if (c.isMesh && c !== window.waterMesh && c !== window.starsMesh) allObjects.push(
+                c); });
+            const intersects = raycaster.intersectObjects(allObjects, false);
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                const normal = intersects[0].face.normal.clone();
+                normal.transformDirection(intersects[0].object.matrixWorld);
+                const placePos = {
+                    x: Math.round(point.x + normal.x * 0.5),
+                    y: Math.round(point.y + normal.y * 0.5),
+                    z: Math.round(point.z + normal.z * 0.5),
+                };
+                // منع البناء في الهوا أو جوا اللاعب
+                const pDist = Math.sqrt((placePos.x - playerPosition.x) ** 2 + (placePos.y - playerPosition.y) ** 2 + (
+                    placePos.z - playerPosition.z) ** 2);
+                if (pDist < 1.2) return;
+                // منع البناء بعيد عن الجزيرة
+                if (Math.sqrt(placePos.x ** 2 + placePos.z ** 2) > ISLAND_RADIUS) return;
+
+                // إنشاء كتلة
+                const geo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+                const mat = new THREE.MeshStandardMaterial({ color: '#a08060', roughness: 0.7 });
+                if (selectedSlot === 1) mat.color.set('#7f7f7f'); // حجر
+                if (selectedSlot === 2) mat.color.set('#b8945c'); // خشب
+                if (selectedSlot === 3) mat.color.set('#c49a5c'); // ألواح
+                const block = new THREE.Mesh(geo, mat);
+                block.position.copy(placePos);
+                block.castShadow = true;
+                block.receiveShadow = true;
+                block.userData = { type: 'placed_block' };
+                scene.add(block);
+                placedBlocks.push({ x: placePos.x, y: placePos.y, z: placePos.z, mesh: block });
+                showMessage('🧱 بنيت كتلة!');
+            }
+        }
+
+        function toggleCampfire() {
+            if (campfireLit) {
+                campfireLit = false;
+                if (campfirePosition && campfirePosition.fireLight) {
+                    scene.remove(campfirePosition.fireLight);
+                    campfirePosition.fireLight = null;
+                }
+                showMessage('🔥 أطفأت النار');
+            } else {
+                // إنشاء نار قدام اللاعب
+                const dir = new THREE.Vector3();
+                camera.getWorldDirection(dir);
+                const pos = {
+                    x: playerPosition.x + dir.x * 2.5,
+                    y: 0.9,
+                    z: playerPosition.z + dir.z * 2.5,
+                };
+                if (Math.sqrt(pos.x ** 2 + pos.z ** 2) > ISLAND_RADIUS - 1) {
+                    showMessage('❌ لا يمكن إشعال نار بعيداً عن الجزيرة');
+                    return;
+                }
+                // نار (ضوء + جسيمات بسيطة)
+                const fireLight = new THREE.PointLight('#ff6600', 3, 5);
+                fireLight.position.copy(pos);
+                fireLight.position.y += 0.3;
+                scene.add(fireLight);
+                // لهب بسيط
+                const flameGeo = new THREE.ConeGeometry(0.25, 0.7, 8);
+                const flameMat = new THREE.MeshBasicMaterial({ color: '#ff6600', transparent: true, opacity: 0.8 });
+                const flame = new THREE.Mesh(flameGeo, flameMat);
+                flame.position.copy(pos);
+                flame.position.y += 0.4;
+                flame.name = 'flame';
+                scene.add(flame);
+                campfirePosition = { x: pos.x, y: pos.y, z: pos.z, fireLight: fireLight, flame: flame };
+                campfireLit = true;
+                showMessage('🔥 أشعلت ناراً للتدفئة والحماية!');
+            }
+        }
+
+        // ==================== واجهة المستخدم ====================
+        function showMessage(msg) {
+            const el = document.getElementById('message');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(el._timeout);
+            el._timeout = setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        function updateUI() {
+            document.getElementById('healthBar').style.width = Math.max(0, health) + '%';
+            document.getElementById('hungerBar').style.width = Math.max(0, hunger) + '%';
+            document.getElementById('warmthBar').style.width = Math.max(0, warmth) + '%';
+            document.querySelectorAll('#hotbar .slot').forEach((s, i) => s.classList.toggle('selected', i ===
+                selectedSlot));
+        }
+
+        // ==================== حلقات اللعبة ====================
+        function gameLoop() {
+            const dt = Math.min(clock.getDelta(), 0.1);
+            if (!isDead) {
+                updateDayCycle(dt);
+                updatePlayer(dt);
+                updateMonsters(dt);
+                if (breakRequested) { breakBlock();
+                    breakRequested = false; }
+                if (buildRequested) { buildBlock();
+                    buildRequested = false; }
+                if (meditateRequested) { toggleMeditate();
+                    meditateRequested = false; }
+                // تحريك اللهب
+                if (campfireLit && campfirePosition && campfirePosition.flame) {
+                    campfirePosition.flame.rotation.y += dt * 5;
+                    campfirePosition.flame.scale.setScalar(0.85 + Math.random() * 0.3);
+                }
+                // توهج النجوم
+                if (window.starsMesh && window.starsMesh.material.opacity > 0.5) {
+                    window.starsMesh.rotation.y += dt * 0.03;
+                }
+                // حركة المياه
+                if (window.waterMesh) {
+                    window.waterMesh.position.y = 0.2 + Math.sin(gameTime * 2) * 0.08;
+                }
+                updateUI();
+            }
+            renderer.render(scene, camera);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== أحداث التحكم ====================
+        function setupControls() {
+            // جويستيك الحركة
+            const moveBase = document.getElementById('moveBase');
+            const moveThumb = document.getElementById('moveThumb');
+            let moveActive = false;
+            const moveBaseRect = moveBase.getBoundingClientRect();
+            const moveCenterX = moveBaseRect.width / 2;
+            const moveCenterY = moveBaseRect.height / 2;
+
+            moveBase.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                moveActive = true;
+                updateMoveJoystick(e.touches[0]);
+            });
+            moveBase.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (moveActive) updateMoveJoystick(e.touches[0]);
+            });
+            moveBase.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                moveActive = false;
+                moveThumb.style.transform = 'translate(-50%, -50%)';
+                moveInput.x = 0;
+                moveInput.z = 0;
+            });
+
+            function updateMoveJoystick(touch) {
+                const rect = moveBase.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                let dx = touch.clientX - cx;
+                let dy = touch.clientY - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const maxDist = rect.width / 2 - 15;
+                if (dist > maxDist) { dx = dx / dist * maxDist;
+                    dy = dy / dist * maxDist; }
+                moveThumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                moveInput.x = dx / maxDist;
+                moveInput.z = -dy / maxDist;
+            }
+
+            // جويستيك الكاميرا
+            const lookBase = document.getElementById('lookBase');
+            const lookThumb = document.getElementById('lookThumb');
+            let lookActive = false;
+            let prevLookX = 0,
+                prevLookY = 0;
+
+            lookBase.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                lookActive = true;
+                prevLookX = e.touches[0].clientX;
+                prevLookY = e.touches[0].clientY;
+                lookThumb.classList.add('active');
+            });
+            lookBase.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!lookActive) return;
+                const dx = e.touches[0].clientX - prevLookX;
+                const dy = e.touches[0].clientY - prevLookY;
+                lookInput.x = dx;
+                lookInput.y = dy;
+                prevLookX = e.touches[0].clientX;
+                prevLookY = e.touches[0].clientY;
+                // تحريك إبهام الجويستيك بصرياً
+                const rect = lookBase.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const tdx = Math.max(-20, Math.min(20, prevLookX - cx));
+                const tdy = Math.max(-20, Math.min(20, prevLookY - cy));
+                lookThumb.style.transform = `translate(calc(-50% + ${tdx}px), calc(-50% + ${tdy}px))`;
+            });
+            lookBase.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                lookActive = false;
+                lookInput.x = 0;
+                lookInput.y = 0;
+                lookThumb.style.transform = 'translate(-50%, -50%)';
+                lookThumb.classList.remove('active');
+            });
+
+            // أزرار
+            document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { e.preventDefault();
+                jumpRequested = true; });
+            document.getElementById('breakBtn').addEventListener('touchstart', (e) => { e.preventDefault();
+                breakRequested = true; });
+            document.getElementById('buildBtn').addEventListener('touchstart', (e) => { e.preventDefault();
+                buildRequested = true; });
+
+            // شريط الأدوات
+            document.querySelectorAll('#hotbar .slot').forEach(s => {
+                s.addEventListener('click', () => {
+                    selectedSlot = parseInt(s.dataset.slot);
+                    if (selectedSlot === 4) toggleCampfire();
+                    if (selectedSlot === 5) meditateRequested = true;
+                    updateUI();
+                });
+            });
+
+            // زر العودة للحياة
+            document.getElementById('respawnBtn').addEventListener('click', () => respawn());
+            document.getElementById('startBtn').addEventListener('click', () => {
+                document.getElementById('startScreen').classList.add('hidden');
+                gameStarted = true;
+                showMessage('🏝️ ابنِ مأواك قبل الليل!');
+            });
+
+            // تغيير حجم النافذة
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // منع السحب
+            document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT') e
+            .preventDefault(); }, { passive: false });
+        }
+
+        // ==================== بدء اللعبة ====================
+        function init() {
+            playerPosition = { x: WORLD_SIZE / 2, y: 2.5, z: WORLD_SIZE / 2 };
+            playerVelocity = { x: 0, y: 0, z: 0 };
+            playerRotation = { yaw: Math.PI / 4, pitch: -0.3 };
+            isOnGround = false;
+            gameTime = DAY_CYCLE_SECONDS * 0.3; // ابدأ نهار
+            health = 100;
+            hunger = 100;
+            warmth = 100;
+            isMeditating = false;
+            isDead = false;
+            monsters = [];
+            placedBlocks = [];
+            campfirePosition = null;
+            campfireLit = false;
+
+            initScene();
+            createIsland();
+            createStars();
+            setupControls();
+            updateUI();
+
+            animationId = requestAnimationFrame(gameLoop);
+            console.log('✅ جزيرة الناجي جاهزة!');
+            console.log('🏝️ ابنِ مأوى - 🔥 أشعل نار - 🧘 تأمل تحت النجوم - 👹 احذر وحوش الليل');
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+        console.log('🟢 كود جزيرة الناجي محمل وجاهز!');
+    </script>
+</body>
+</html>
