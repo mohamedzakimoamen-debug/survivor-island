@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>جزيرة الناجي</title>
+    <style>
+        :root {
+            --safe-bottom: env(safe-area-inset-bottom, 8px);
+            --safe-top: env(safe-area-inset-top, 8px);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            background: #000;
+            overflow: hidden;
+            touch-action: manipulation;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            font-family: 'Arial', sans-serif;
+        }
+        #gameCanvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        #startScreen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #startBox {
+            background: linear-gradient(180deg, #1a3a2a, #0d1f14);
+            border: 2px solid #4a8c5c;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            color: #fff;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            max-width: 90vw;
+            width: 340px;
+        }
+        #startBox h1 {
+            font-size: 1.5em;
+            margin: 5px 0;
+            color: #ffd700;
+        }
+        #startBox .emoji-title {
+            font-size: 3em;
+            display: block;
+        }
+        #startBox p {
+            color: #ccc;
+            font-size: 0.8em;
+            margin: 3px 0;
+        }
+        #startBox button {
+            margin-top: 12px;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            background: linear-gradient(180deg, #ff9800, #e65100);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.5);
+        }
+        #startBox button:active {
+            transform: scale(0.93);
+        }
+        #message {
+            position: fixed;
+            top: 15%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 15;
+            color: #fff;
+            font-size: 0.9em;
+            font-weight: bold;
+            text-shadow: 0 0 8px #000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 5px 15px;
+            border-radius: 15px;
+        }
+        #message.show {
+            opacity: 1;
+        }
+        #statusBar {
+            position: fixed;
+            top: calc(10px + var(--safe-top));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 6px;
+            pointer-events: none;
+        }
+        .statusItem {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 8px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.65em;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .statusBar {
+            width: 30px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .statusBarFill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s;
+        }
+        .healthFill {
+            background: #ff4444;
+        }
+        .hungerFill {
+            background: #ff9800;
+        }
+        .warmthFill {
+            background: #ff9800;
+        }
+        #timeIndicator {
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 0.7em;
+        }
+        #hotbar {
+            position: fixed;
+            bottom: calc(80px + var(--safe-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 3px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 6px;
+            border-radius: 8px;
+            border: 1.5px solid #555;
+            pointer-events: auto;
+        }
+        .slot {
+            min-width: 32px;
+            width: 32px;
+            height: 32px;
+            border: 2px solid #777;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(20, 20, 20, 0.8);
+            font-size: 1.2em;
+            transition: all 0.15s;
+        }
+        .slot.selected {
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transform: scale(1.15);
+        }
+        .joystickContainer {
+            position: fixed;
+            z-index: 10;
+            pointer-events: auto;
+        }
+        #moveJoystick {
+            bottom: 100px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+        }
+        #lookJoystick {
+            bottom: 100px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+        }
+        .joystickBase {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-radius: 50%;
+            position: relative;
+        }
+        .joystickThumb {
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.55);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #lookThumb {
+            background: rgba(255, 200, 100, 0.55);
+        }
+        .actionBtns {
+            position: fixed;
+            z-index: 10;
+            pointer-events: auto;
+            display: flex;
+            gap: 20px;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .actionBtn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2.5px solid rgba(255, 255, 255, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            color: #fff;
+            transition: all 0.1s;
+        }
+        .actionBtn:active {
+            transform: scale(0.82);
+        }
+        #jumpBtn {
+            position: fixed;
+            bottom: 50px;
+            right: 25px;
+            z-index: 10;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <div id="startBox">
+            <span class="emoji-title">🏝️</span>
+            <h1>جزيرة الناجي</h1>
+            <p>🔥 ابنِ مأواك قبل الليل</p>
+            <p>👹 وحوش تخرج في الظلام</p>
+            <p>🧘 تأمل تحت النجوم</p>
+            <p style="font-size:0.7em;color:#aaa;">🕹️ جويستيك شمال=حركة | يمين=نظر</p>
+            <button id="startBtn">🎮 ابدأ</button>
+        </div>
+    </div>
+    <div id="message"></div>
+    <div id="statusBar">
+        <div class="statusItem">❤️<div class="statusBar"><div class="statusBarFill healthFill" id="healthBar" style="width:100%"></div></div></div>
+        <div class="statusItem">🍖<div class="statusBar"><div class="statusBarFill hungerFill" id="hungerBar" style="width:100%"></div></div></div>
+        <div class="statusItem">🌡️<div class="statusBar"><div class="statusBarFill warmthFill" id="warmthBar" style="width:100%"></div></div></div>
+        <div class="statusItem" id="timeIndicator">☀️ نهار</div>
+    </div>
+    <div id="hotbar">
+        <div class="slot selected" data-slot="0">🪓</div>
+        <div class="slot" data-slot="1">🪨</div>
+        <div class="slot" data-slot="2">🪵</div>
+        <div class="slot" data-slot="3">🧱</div>
+        <div class="slot" data-slot="4">🔥</div>
+        <div class="slot" data-slot="5">🧘</div>
+    </div>
+    <div class="joystickContainer" id="moveJoystick">
+        <div class="joystickBase" id="moveBase"><div class="joystickThumb" id="moveThumb"></div></div>
+    </div>
+    <div class="joystickContainer" id="lookJoystick">
+        <div class="joystickBase" id="lookBase"><div class="joystickThumb" id="lookThumb"></div></div>
+    </div>
+    <div class="actionBtns">
+        <div class="actionBtn" id="breakBtn">⛏️</div>
+        <div class="actionBtn" id="buildBtn">🏗️</div>
+    </div>
+    <div class="actionBtn" id="jumpBtn">🦘</div>
+    <div id="gameCanvas"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const ISLAND_RADIUS = 9;
+        const WORLD_SIZE = 20;
+        const PLAYER_HEIGHT = 1.6;
+        const PLAYER_WIDTH = 0.5;
+        const GRAVITY = 18;
+        const JUMP_VELOCITY = 8;
+        const MOVE_SPEED = 5.5;
+        const LOOK_SENSITIVITY = 0.012;
+        const REACH_DISTANCE = 5.5;
+        const DAY_CYCLE_SECONDS = 480;
+        let scene, camera, renderer, clock;
+        let playerPosition, playerVelocity, playerRotation;
+        let isOnGround = false;
+        let gameTime = DAY_CYCLE_SECONDS * 0.3;
+        let isNight = false;
+        let selectedSlot = 0;
+        let health = 100;
+        let hunger = 100;
+        let warmth = 100;
+        let isMeditating = false;
+        let isDead = false;
+        let monsters = [];
+        let placedBlocks = [];
+        let campfirePosition = null;
+        let campfireLit = false;
+        let animationId;
+        let moveInput = { x: 0, z: 0 };
+        let lookInput = { x: 0, y: 0 };
+        let jumpRequested = false;
+        let breakRequested = false;
+        let buildRequested = false;
+        let meditateRequested = false;
+        let smokeParticles = [];
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#87CEEB');
+            scene.fog = new THREE.FogExp2('#c8e0f4', 0.0008);
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 60);
+            camera.position.set(WORLD_SIZE / 2, 6, WORLD_SIZE / 2);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            document.getElementById('gameCanvas').appendChild(renderer.domElement);
+            const al = new THREE.AmbientLight('#8899bb', 0.8);
+            scene.add(al);
+            const sl = new THREE.DirectionalLight('#fff8e7', 3);
+            sl.position.set(20, 25, 15);
+            sl.castShadow = true;
+            sl.shadow.mapSize.width = 2048;
+            sl.shadow.mapSize.height = 2048;
+            sl.shadow.camera.near = 0.5;
+            sl.shadow.camera.far = 60;
+            sl.shadow.camera.left = -22;
+            sl.shadow.camera.right = 22;
+            sl.shadow.camera.top = 22;
+            sl.shadow.camera.bottom = -22;
+            sl.shadow.bias = -0.0003;
+            sl.shadow.normalBias = 0.02;
+            scene.add(sl);
+            window.sunLight = sl;
+            const hl = new THREE.HemisphereLight('#87CEEB', '#8b6914', 0.5);
+            scene.add(hl);
+            clock = new THREE.Clock();
+        }
+
+        function createWater() {
+            const wg = new THREE.CircleGeometry(30, 128);
+            const wm = new THREE.MeshPhysicalMaterial({
+                color: '#2196F3',
+                roughness: 0.1,
+                metalness: 0.1,
+                clearcoat: 0.3,
+                clearcoatRoughness: 0.2,
+                transparent: true,
+                opacity: 0.9
+            });
+            const w = new THREE.Mesh(wg, wm);
+            w.rotation.x = -Math.PI / 2;
+            w.position.y = 0.15;
+            w.receiveShadow = true;
+            scene.add(w);
+            window.waterMesh = w;
+            const wg2 = new THREE.CircleGeometry(28, 64);
+            const wm2 = new THREE.MeshStandardMaterial({ color: '#1565C0', roughness: 0.2, transparent: true,
+            opacity: 0.5 });
+            const w2 = new THREE.Mesh(wg2, wm2);
+            w2.rotation.x = -Math.PI / 2;
+            w2.position.y = 0.1;
+            scene.add(w2);
+            window.waterDeep = w2;
+        }
+
+        function createIsland() {
+            const sg = new THREE.CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS + 2, 0.6, 64);
+            const sm = new THREE.MeshStandardMaterial({ color: '#f4d03f', roughness: 0.5, metalness: 0.05 });
+            const s = new THREE.Mesh(sg, sm);
+            s.position.y = 0.3;
+            s.receiveShadow = true;
+            s.castShadow = true;
+            scene.add(s);
+            const gg = new THREE.CylinderGeometry(ISLAND_RADIUS - 0.3, ISLAND_RADIUS + 0.5, 2, 64);
+            const gm = new THREE.MeshStandardMaterial({ color: '#6d4c41', roughness: 0.7 });
+            const g = new THREE.Mesh(gg, gm);
+            g.position.y = 0.6;
+            g.receiveShadow = true;
+            g.castShadow = true;
+            scene.add(g);
+            const grg = new THREE.CylinderGeometry(ISLAND_RADIUS - 0.8, ISLAND_RADIUS - 0.2, 0.4, 64);
+            const grm = new THREE.MeshStandardMaterial({ color: '#4caf50', roughness: 0.6, metalness: 0.05 });
+            const gr = new THREE.Mesh(grg, grm);
+            gr.position.y = 1.5;
+            gr.receiveShadow = true;
+            scene.add(gr);
+            for (let i = 0; i < 12; i++) {
+                const a = (i / 12) * Math.PI * 2 + Math.random() * 0.3;
+                const r = ISLAND_RADIUS - 0.5 + Math.random() * 1.5;
+                const rg = new THREE.SphereGeometry(0.2 + Math.random() * 0.6, 8, 6);
+                const rm = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.08, 0.05, 0.4 + Math.random() *
+                        0.3), roughness: 0.5 });
+                const rk = new THREE.Mesh(rg, rm);
+                rk.position.set(Math.cos(a) * r, 0.4, Math.sin(a) * r);
+                rk.castShadow = true;
+                rk.receiveShadow = true;
+                rk.userData = { type: 'rock', health: 3 };
+                scene.add(rk);
+            }
+            for (let i = 0; i < 10; i++) {
+                const a = (i / 10) * Math.PI * 2 + Math.random() * 0.4;
+                const r = 2 + Math.random() * (ISLAND_RADIUS - 3);
+                createPalmTree(Math.cos(a) * r, 1.5, Math.sin(a) * r);
+            }
+            for (let i = 0; i < 30; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const r = 1 + Math.random() * (ISLAND_RADIUS - 2);
+                const bg = new THREE.SphereGeometry(0.15 + Math.random() * 0.3, 6, 4);
+                const bm = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.25 + Math.random() * 0.15, 0.7,
+                        0.25 + Math.random() * 0.3), roughness: 0.5 });
+                const b = new THREE.Mesh(bg, bm);
+                b.position.set(Math.cos(a) * r, 1.6, Math.sin(a) * r);
+                b.castShadow = true;
+                b.receiveShadow = true;
+                scene.add(b);
+            }
+        }
+
+        function createPalmTree(x, y, z) {
+            const tg = new THREE.CylinderGeometry(0.15, 0.3, 3, 16);
+            const tm = new THREE.MeshStandardMaterial({ color: '#8d6e63', roughness: 0.6, metalness: 0.05 });
+            const t = new THREE.Mesh(tg, tm);
+            t.position.set(x, y + 1.5, z);
+            t.castShadow = true;
+            t.receiveShadow = true;
+            t.userData = { type: 'tree', health: 5 };
+            scene.add(t);
+            const tc = new THREE.CylinderGeometry(0.32, 0.35, 0.4, 16);
+            const tcm = new THREE.MeshStandardMaterial({ color: '#6d4c41', roughness: 0.5 });
+            const tcmesh = new THREE.Mesh(tc, tcm);
+            tcmesh.position.set(x, y + 3.1, z);
+            tcmesh.castShadow = true;
+            scene.add(tcmesh);
+            for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * Math.PI * 2;
+                const lg = new THREE.ConeGeometry(0.8, 0.2, 8);
+                const lm = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.2 + Math.random() * 0.15, 0.8,
+                        0.3 + Math.random() * 0.2), roughness: 0.4, side: THREE.DoubleSide });
+                const l = new THREE.Mesh(lg, lm);
+                l.position.set(x + Math.cos(a) * 0.4, y + 3.2, z + Math.sin(a) * 0.4);
+                l.rotation.z = Math.cos(a) * 0.6;
+                l.rotation.x = Math.sin(a) * 0.6;
+                l.rotation.y = a;
+                l.castShadow = true;
+                l.receiveShadow = true;
+                scene.add(l);
+            }
+            for (let i = 0; i < 5; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const lg2 = new THREE.ConeGeometry(0.5, 0.15, 6);
+                const lm2 = new THREE.MeshStandardMaterial({ color: '#388e3c', roughness: 0.4, side: THREE.DoubleSide });
+                const l2 = new THREE.Mesh(lg2, lm2);
+                l2.position.set(x + Math.cos(a) * 0.7, y + 3.0 + Math.random() * 0.4, z + Math.sin(a) * 0.7);
+                l2.rotation.z = Math.cos(a) * 0.5;
+                l2.rotation.x = Math.sin(a) * 0.5;
+                l2.castShadow = true;
+                scene.add(l2);
+            }
+        }
+
+        function createStars() {
+            const sg = new THREE.BufferGeometry();
+            const c = 800;
+            const p = new Float32Array(c * 3);
+            const sizes = new Float32Array(c);
+            for (let i = 0; i < c; i++) {
+                p[i * 3] = (Math.random() - 0.5) * 70;
+                p[i * 3 + 1] = 18 + Math.random() * 30;
+                p[i * 3 + 2] = (Math.random() - 0.5) * 70;
+                sizes[i] = Math.random() * 0.3;
+            }
+            sg.setAttribute('position', new THREE.BufferAttribute(p, 3));
+            sg.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            const sm = new THREE.PointsMaterial({ color: '#ffffff', size: 0.2, transparent: true, opacity: 0,
+                blending: THREE.AdditiveBlending, depthWrite: false });
+            const s = new THREE.Points(sg, sm);
+            s.name = 'stars';
+            scene.add(s);
+            window.starsMesh = s;
+        }
+
+        function createMoon() {
+            const mg = new THREE.SphereGeometry(1.5, 32, 32);
+            const mm = new THREE.MeshBasicMaterial({ color: '#ffffcc' });
+            const moon = new THREE.Mesh(mg, mm);
+            moon.position.set(15, 25, -10);
+            moon.name = 'moon';
+            moon.visible = false;
+            scene.add(moon);
+            window.moonMesh = moon;
+        }
+
+        function spawnMonster() {
+            if (!isNight || isDead) return;
+            const a = Math.random() * Math.PI * 2;
+            const r = ISLAND_RADIUS + 3;
+            const mg = new THREE.ConeGeometry(0.5, 2, 8);
+            const mm = new THREE.MeshStandardMaterial({ color: '#1a0000', roughness: 0.3, emissive: '#330000',
+                emissiveIntensity: 0.5 });
+            const m = new THREE.Mesh(mg, mm);
+            m.position.set(Math.cos(a) * r, 0.8, Math.sin(a) * r);
+            m.castShadow = true;
+            m.userData = { type: 'monster', speed: 1.5 + Math.random() * 2, damage: 10 + Math.random() * 15 };
+            scene.add(m);
+            monsters.push(m);
+            const eg = new THREE.SphereGeometry(0.12, 4, 4);
+            const em = new THREE.MeshBasicMaterial({ color: '#ff0000' });
+            const e1 = new THREE.Mesh(eg, em);
+            e1.position.set(0.15, 0.7, 0.4);
+            m.add(e1);
+            const e2 = new THREE.Mesh(eg, em);
+            e2.position.set(-0.15, 0.7, 0.4);
+            m.add(e2);
+            const gl = new THREE.PointLight('#ff0000', 1, 3);
+            gl.position.copy(m.position);
+            gl.position.y += 1;
+            m.add(gl);
+        }
+
+        function createSmokeParticle(pos) {
+            const sg = new THREE.SphereGeometry(0.05, 4, 4);
+            const sm = new THREE.MeshBasicMaterial({ color: '#aaaaaa', transparent: true, opacity: 0.6 });
+            const s = new THREE.Mesh(sg, sm);
+            s.position.copy(pos);
+            s.position.y += 0.5;
+            s.userData = { life: 2, speed: 0.5 + Math.random() * 1 };
+            scene.add(s);
+            smokeParticles.push(s);
+        }
+
+        function updateSmoke(dt) {
+            for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                const s = smokeParticles[i];
+                s.userData.life -= dt;
+                s.position.y += s.userData.speed * dt;
+                s.material.opacity = s.userData.life / 2;
+                s.scale.setScalar(1 + (2 - s.userData.life) * 2);
+                if (s.userData.life <= 0) { scene.remove(s);
+                    smokeParticles.splice(i, 1); }
+            }
+        }
+
+        function updateMonsters(dt) {
+            if (!isNight || isDead) return;
+            for (let i = monsters.length - 1; i >= 0; i--) {
+                const m = monsters[i];
+                const dx = playerPosition.x - m.position.x;
+                const dz = playerPosition.z - m.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+                if (dist < 12 && dist > 0.8) {
+                    const s = m.userData.speed * dt;
+                    m.position.x += (dx / dist) * s;
+                    m.position.z += (dz / dist) * s;
+                    m.lookAt(playerPosition.x, m.position.y, playerPosition.z);
+                }
+                if (dist < 1.5 && !isMeditating) { health -= m.userData.damage * dt; if (health <= 0 && !isDead) die(); }
+                if (isMeditating && dist < 5) { m.position.x -= (dx / dist) * 4 * dt;
+                    m.position.z -= (dz / dist) * 4 * dt; }
+                if (campfireLit && campfirePosition && dist < 4) { scene.remove(m);
+                    monsters.splice(i, 1); }
+            }
+        }
+
+        function die() { isDead = true;
+            health = 0;
+            showMessage('💀 ماتت! اضغط F5 للمحاولة'); }
+
+        function updateDayCycle(dt) {
+            gameTime += dt;
+            if (gameTime >= DAY_CYCLE_SECONDS) gameTime -= DAY_CYCLE_SECONDS;
+            const dp = gameTime / DAY_CYCLE_SECONDS;
+            isNight = dp > 0.65 || dp < 0.15;
+            let sc, ai, si, so, moonVis;
+            if (dp < 0.1) { const t = dp / 0.1;
+                sc = new THREE.Color().lerpColors(new THREE.Color('#1a1a3a'), new THREE.Color('#ff9966'), t);
+                ai = 0.4 + t * 0.5;
+                si = 0.5 + t * 2.5;
+                so = 1 - t;
+                moonVis = false; } else if (dp < 0.5) { sc = new THREE.Color('#87CEEB');
+                ai = 0.9;
+                si = 3;
+                so = 0;
+                moonVis = false; } else if (dp < 0.65) { const t = (dp - 0.5) / 0.15;
+                sc = new THREE.Color().lerpColors(new THREE.Color('#87CEEB'), new THREE.Color('#ff4444'), t);
+                ai = 0.9 - t * 0.6;
+                si = 3 - t * 2.7;
+                so = t;
+                moonVis = t > 0.5; } else if (dp < 0.9) { sc = new THREE.Color('#0a0a1a');
+                ai = 0.25;
+                si = 0.2;
+                so = 1;
+                moonVis = true; } else { sc = new THREE.Color('#1a1a3a');
+                ai = 0.3;
+                si = 0.3;
+                so = 0.8;
+                moonVis = true; }
+            scene.background = sc;
+            scene.fog = new THREE.FogExp2(sc, isNight ? 0.001 : 0.0006);
+            if (window.sunLight) { window.sunLight.intensity = si;
+                window.sunLight.color.set(isNight ? '#334466' : '#fff8e7'); const sa = dp * Math.PI * 2;
+                window.sunLight.position.set(Math.cos(sa) * 25, 10 + Math.sin(sa) * 20, Math.sin(sa) * 15); }
+            const al = scene.children.find(c => c instanceof THREE.AmbientLight);
+            if (al) al.intensity = ai;
+            if (window.starsMesh) window.starsMesh.material.opacity = so;
+            if (window.moonMesh) window.moonMesh.visible = moonVis;
+            const ti = document.getElementById('timeIndicator');
+            if (isNight) { ti.textContent = '🌙 ليل';
+                ti.style.color = '#aaaaff'; } else if (dp < 0.1) { ti.textContent = '🌅 شروق';
+                ti.style.color = '#ff9966'; } else if (dp > 0.5 && dp < 0.65) { ti.textContent = '🌅 غروب';
+                ti.style.color = '#ff6666'; } else { ti.textContent = '☀️ نهار';
+                ti.style.color = '#ffd700'; }
+            if (isNight) {
+                if (!campfireLit || !campfirePosition || Math.sqrt((playerPosition.x - (campfirePosition?.x || 0)) ** 2 + (
+                        playerPosition.z - (campfirePosition?.z || 0)) ** 2) > 3.5) { warmth -= 4 * dt; if (warmth < 0)
+                        warmth = 0; } else { warmth = Math.min(100, warmth + 20 * dt); }
+            } else { warmth = Math.min(100, warmth + 8 * dt); }
+            hunger -= 1.5 * dt;
+            if (hunger < 0) { hunger = 0;
+                health -= 4 * dt; }
+            if (health <= 0 && !isDead) die();
+            if (isNight && !isDead && Math.random() < dt / 12 && monsters.length < 10) spawnMonster();
+            if (!isNight) { for (const m of monsters) scene.remove(m);
+                monsters = []; }
+        }
+
+        function getPlayerBB(pos) { const hw = PLAYER_WIDTH / 2; return { minX: pos.x - hw, maxX: pos.x + hw, minY: pos.y,
+                maxY: pos.y + 1.7, minZ: pos.z - hw, maxZ: pos.z + hw }; }
+
+        function checkCollision(pos) {
+            const bb = getPlayerBB(pos);
+            for (const bl of placedBlocks) { const bbb = { minX: bl.x, maxX: bl.x + 1, minY: bl.y, maxY: bl.y + 1,
+                    minZ: bl.z, maxZ: bl.z + 1 }; if (bb.maxX > bbb.minX && bb.minX < bbb.maxX && bb.maxY > bbb.minY &&
+                    bb.minY < bbb.maxY && bb.maxZ > bbb.minZ && bb.minZ < bbb.maxZ) return true; }
+            if (Math.sqrt(pos.x ** 2 + pos.z ** 2) > ISLAND_RADIUS - 0.5) return true;
+            if (pos.y < 0.3) return true;
+            if (pos.y > 10) return true;
+            return false;
+        }
+
+        function updatePlayer(dt) {
+            if (isDead || isMeditating) return;
+            const ddt = Math.min(dt, 0.15);
+            const yaw = playerRotation.yaw;
+            const fx = Math.sin(yaw),
+                fz = Math.cos(yaw);
+            const rx = Math.cos(yaw),
+                rz = -Math.sin(yaw);
+            const mx = moveInput.z * fx + moveInput.x * rx;
+            const mz = moveInput.z * fz + moveInput.x * rz;
+            const mag = Math.sqrt(mx ** 2 + mz ** 2);
+            const nmx = mag > 1 ? mx / mag : mx;
+            const nmz = mag > 1 ? mz / mag : mz;
+            playerVelocity.x = nmx * MOVE_SPEED;
+            playerVelocity.z = nmz * MOVE_SPEED;
+            if (!isOnGround) playerVelocity.y -= GRAVITY * ddt;
+            else playerVelocity.y = Math.min(playerVelocity.y, 0);
+            if (jumpRequested && isOnGround) { playerVelocity.y = JUMP_VELOCITY;
+                isOnGround = false;
+                jumpRequested = false; }
+            const np = { ...playerPosition };
+            np.x += playerVelocity.x * ddt;
+            if (checkCollision(np)) { np.x = playerPosition.x;
+                playerVelocity.x = 0; }
+            np.y += playerVelocity.y * ddt;
+            if (checkCollision(np)) { if (playerVelocity.y < 0) isOnGround = true;
+                np.y = playerPosition.y;
+                playerVelocity.y = 0; } else isOnGround = false;
+            np.z += playerVelocity.z * ddt;
+            if (checkCollision(np)) { np.z = playerPosition.z;
+                playerVelocity.z = 0; }
+            playerPosition = np;
+            if (checkCollision({ ...playerPosition, y: playerPosition.y - 0.05 })) isOnGround = true;
+            playerRotation.yaw += lookInput.x * LOOK_SENSITIVITY;
+            playerRotation.pitch += lookInput.y * LOOK_SENSITIVITY;
+            playerRotation.pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, playerRotation.pitch));
+            camera.position.set(playerPosition.x, playerPosition.y + PLAYER_HEIGHT, playerPosition.z);
+            const ld = new THREE.Vector3(Math.sin(playerRotation.yaw) * Math.cos(playerRotation.pitch), Math.sin(
+                playerRotation.pitch), Math.cos(playerRotation.yaw) * Math.cos(playerRotation.pitch));
+            camera.lookAt(playerPosition.x + ld.x, playerPosition.y + PLAYER_HEIGHT + ld.y, playerPosition.z + ld.z);
+        }
+
+        function getTargetBlock() {
+            const rc = new THREE.Raycaster();
+            const d = new THREE.Vector3();
+            camera.getWorldDirection(d);
+            rc.set(camera.position, d);
+            rc.far = REACH_DISTANCE;
+            const tg = [];
+            scene.traverse(c => { if (c.isMesh && c.userData.type && ['tree', 'rock'].includes(c.userData.type)) tg.push(
+                    c); });
+            for (const bl of placedBlocks) { if (bl.mesh) tg.push(bl.mesh); }
+            const is = rc.intersectObjects(tg, false);
+            if (is.length > 0) return { object: is[0].object, point: is[0].point, normal: is[0].face.normal,
+            userData: is[0].object.userData };
+            return null;
+        }
+
+        function breakBlock() {
+            const t = getTargetBlock();
+            if (!t) return;
+            const ud = t.userData;
+            if (ud.type === 'tree' || ud.type === 'rock') { ud.health--;
+                showMessage(`⛏️ ${ud.type==='tree'?'شجرة':'صخرة'}: ${ud.health} ضربات`); if (ud.health <= 0) { scene.remove(t
+                        .object);
+                    showMessage(`✅ جمعت ${ud.type==='tree'?'خشب':'حجر'}!`); } } else if (ud.type === 'placed_block') { const
+                    idx = placedBlocks.findIndex(b => b.mesh === t.object); if (idx >= 0) { scene.remove(placedBlocks[idx].mesh);
+                    placedBlocks.splice(idx, 1);
+                    showMessage('🧱 كسرت كتلة'); } }
+        }
+
+        function buildBlock() {
+            const rc = new THREE.Raycaster();
+            const d = new THREE.Vector3();
+            camera.getWorldDirection(d);
+            rc.set(camera.position, d);
+            rc.far = REACH_DISTANCE;
+            const ao = [];
+            scene.traverse(c => { if (c.isMesh && c !== window.waterMesh && c !== window.waterDeep && c !== window
+                    .starsMesh && c !== window.moonMesh) ao.push(c); });
+            const is = rc.intersectObjects(ao, false);
+            if (is.length > 0) {
+                const pt = is[0].point;
+                const nm = is[0].face.normal.clone();
+                nm.transformDirection(is[0].object.matrixWorld);
+                const pp = { x: Math.round(pt.x + nm.x * 0.5), y: Math.round(pt.y + nm.y * 0.5), z: Math.round(pt.z + nm.z *
+                        0.5) };
+                if (Math.sqrt((pp.x - playerPosition.x) ** 2 + (pp.y - playerPosition.y) ** 2 + (pp.z - playerPosition.z) **
+                        2) < 1.2) return;
+                if (Math.sqrt(pp.x ** 2 + pp.z ** 2) > ISLAND_RADIUS - 0.3) return;
+                if (pp.y < 0.3) return;
+                const geo = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+                const mat = new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.05 });
+                if (selectedSlot === 0) mat.color.set('#a08060');
+                if (selectedSlot === 1) mat.color.set('#7f7f7f');
+                if (selectedSlot === 2) mat.color.set('#b8945c');
+                if (selectedSlot === 3) mat.color.set('#c49a5c');
+                const blk = new THREE.Mesh(geo, mat);
+                blk.position.copy(pp);
+                blk.castShadow = true;
+                blk.receiveShadow = true;
+                blk.userData = { type: 'placed_block' };
+                scene.add(blk);
+                placedBlocks.push({ x: pp.x, y: pp.y, z: pp.z, mesh: blk });
+                showMessage('🧱 بنيت كتلة!');
+            }
+        }
+
+        function toggleCampfire() {
+            if (campfireLit) { campfireLit = false; if (campfirePosition?.fireLight) { scene.remove(campfirePosition.fireLight);
+                    campfirePosition.fireLight = null; } if (campfirePosition?.flame) { scene.remove(campfirePosition.flame);
+                    campfirePosition.flame = null; } showMessage('🔥 أطفأت النار'); return; }
+            const d = new THREE.Vector3();
+            camera.getWorldDirection(d);
+            const pos = { x: playerPosition.x + d.x * 3, y: 1.2, z: playerPosition.z + d.z * 3 };
+            if (Math.sqrt(pos.x ** 2 + pos.z ** 2) > ISLAND_RADIUS - 1) { showMessage('❌ بعيد جداً'); return; }
+            const fl = new THREE.PointLight('#ff6600', 5, 7);
+            fl.position.copy(pos);
+            fl.position.y += 0.3;
+            scene.add(fl);
+            const fg = new THREE.ConeGeometry(0.25, 0.8, 12);
+            const fm = new THREE.MeshBasicMaterial({ color: '#ff8800', transparent: true, opacity: 0.9 });
+            const fmesh = new THREE.Mesh(fg, fm);
+            fmesh.position.copy(pos);
+            fmesh.position.y += 0.5;
+            fmesh.name = 'flame';
+            scene.add(fmesh);
+            const fg2 = new THREE.ConeGeometry(0.15, 0.5, 8);
+            const fm2 = new THREE.MeshBasicMaterial({ color: '#ffcc00', transparent: true, opacity: 0.9 });
+            const fmesh2 = new THREE.Mesh(fg2, fm2);
+            fmesh2.position.copy(pos);
+            fmesh2.position.y += 0.9;
+            fmesh2.name = 'flame_inner';
+            scene.add(fmesh2);
+            campfirePosition = { x: pos.x, y: pos.y, z: pos.z, fireLight: fl, flame: fmesh, flameInner: fmesh2 };
+            campfireLit = true;
+            showMessage('🔥 أشعلت ناراً!');
+        }
+
+        function toggleMeditate() {
+            if (isDead) return;
+            isMeditating = !isMeditating;
+            if (isMeditating) { playerRotation.pitch = -Math.PI / 2.5;
+                showMessage('🧘 تتأمل تحت النجوم...'); } else { playerRotation.pitch = -0.2;
+                showMessage('🧘 انتهى التأمل'); }
+        }
+
+        function showMessage(msg) {
+            const el = document.getElementById('message');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(el._t);
+            el._t = setTimeout(() => el.classList.remove('show'), 2500);
+        }
+
+        function updateUI() {
+            document.getElementById('healthBar').style.width = Math.max(0, health) + '%';
+            document.getElementById('hungerBar').style.width = Math.max(0, hunger) + '%';
+            document.getElementById('warmthBar').style.width = Math.max(0, warmth) + '%';
+            document.querySelectorAll('#hotbar .slot').forEach((s, i) => s.classList.toggle('selected', i === selectedSlot));
+        }
+
+        function gameLoop() {
+            const dt = Math.min(clock.getDelta(), 0.1);
+            if (!isDead) {
+                updateDayCycle(dt);
+                updatePlayer(dt);
+                updateMonsters(dt);
+                updateSmoke(dt);
+                if (breakRequested) { breakBlock();
+                    breakRequested = false; }
+                if (buildRequested) { buildBlock();
+                    buildRequested = false; }
+                if (meditateRequested) { toggleMeditate();
+                    meditateRequested = false; }
+                if (campfireLit && campfirePosition) {
+                    if (campfirePosition.flame) { campfirePosition.flame.rotation.y += dt * 8;
+                        campfirePosition.flame.scale.setScalar(0.85 + Math.random() * 0.3); }
+                    if (campfirePosition.flameInner) { campfirePosition.flameInner.rotation.y -= dt * 6;
+                        campfirePosition.flameInner.scale.setScalar(0.7 + Math.random() * 0.4); }
+                    if (Math.random() < dt * 8) createSmokeParticle(campfirePosition);
+                }
+                if (window.starsMesh && window.starsMesh.material.opacity > 0.3) {
+                    window.starsMesh.rotation.y += dt * 0.02;
+                    window.starsMesh.rotation.x += dt * 0.01;
+                }
+                if (window.waterMesh) window.waterMesh.position.y = 0.15 + Math.sin(gameTime * 1.5) * 0.1;
+                if (window.waterDeep) window.waterDeep.position.y = 0.05 + Math.cos(gameTime * 1.8) * 0.08;
+                updateUI();
+            }
+            renderer.render(scene, camera);
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function setupControls() {
+            const mb = document.getElementById('moveBase');
+            const mt = document.getElementById('moveThumb');
+            let ma = false;
+            mb.addEventListener('touchstart', (e) => { e.stopPropagation();
+                ma = true;
+                updateMJ(e.touches[0]); }, { passive: false });
+            mb.addEventListener('touchmove', (e) => { e.stopPropagation(); if (ma) updateMJ(e.touches[0]); }, { passive: false });
+            mb.addEventListener('touchend', (e) => { e.stopPropagation();
+                ma = false;
+                mt.style.transform = 'translate(-50%, -50%)';
+                moveInput.x = 0;
+                moveInput.z = 0; }, { passive: false });
+
+            function updateMJ(t) {
+                const r = mb.getBoundingClientRect();
+                const cx = r.left + r.width / 2,
+                    cy = r.top + r.height / 2;
+                let dx = t.clientX - cx,
+                    dy = t.clientY - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy),
+                    md = r.width / 2 - 15;
+                if (dist > md) { dx = dx / dist * md;
+                    dy = dy / dist * md; }
+                mt.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                moveInput.x = dx / md;
+                moveInput.z = -dy / md;
+            }
+            const lb = document.getElementById('lookBase');
+            const lt = document.getElementById('lookThumb');
+            let la = false,
+                plx = 0,
+                ply = 0;
+            lb.addEventListener('touchstart', (e) => { e.stopPropagation();
+                la = true;
+                plx = e.touches[0].clientX;
+                ply = e.touches[0].clientY; }, { passive: false });
+            lb.addEventListener('touchmove', (e) => { e.stopPropagation(); if (!la) return;
+                lookInput.x = e.touches[0].clientX - plx;
+                lookInput.y = e.touches[0].clientY - ply;
+                plx = e.touches[0].clientX;
+                ply = e.touches[0].clientY; }, { passive: false });
+            lb.addEventListener('touchend', (e) => { e.stopPropagation();
+                la = false;
+                lookInput.x = 0;
+                lookInput.y = 0;
+                lt.style.transform = 'translate(-50%, -50%)'; }, { passive: false });
+            document.getElementById('jumpBtn').addEventListener('touchstart', (e) => { e.stopPropagation();
+                jumpRequested = true; }, { passive: false });
+            document.getElementById('breakBtn').addEventListener('touchstart', (e) => { e.stopPropagation();
+                breakRequested = true; }, { passive: false });
+            document.getElementById('buildBtn').addEventListener('touchstart', (e) => { e.stopPropagation();
+                buildRequested = true; }, { passive: false });
+            document.querySelectorAll('#hotbar .slot').forEach(s => { s.addEventListener('click', () => { selectedSlot =
+                        parseInt(s.dataset.slot); if (selectedSlot === 4) toggleCampfire(); if (selectedSlot === 5)
+                        meditateRequested = true;
+                    updateUI(); }); });
+            document.getElementById('startBtn').addEventListener('click', () => { document.getElementById('startScreen')
+                    .classList.add('hidden');
+                showMessage('🏝️ ابنِ مأواك قبل الليل!'); });
+            window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight); });
+        }
+
+        function init() {
+            playerPosition = { x: WORLD_SIZE / 2, y: 3, z: WORLD_SIZE / 2 };
+            playerVelocity = { x: 0, y: 0, z: 0 };
+            playerRotation = { yaw: Math.PI / 4, pitch: -0.3 };
+            initScene();
+            createWater();
+            createIsland();
+            createStars();
+            createMoon();
+            setupControls();
+            updateUI();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
