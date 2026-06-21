@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>تقطيع الفواكه - Fruit Slash 3D</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body {
+            background: #1a0a00;
+            overflow: hidden;
+            touch-action: manipulation;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            font-family: 'Arial', sans-serif;
+        }
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #scorePanel {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            padding: 10px 25px;
+            border-radius: 25px;
+            border: 2px solid #ffaa00;
+            text-align: center;
+        }
+        #scoreText {
+            color: #ffd700;
+            font-size: 2.5em;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(255,215,0,0.6);
+        }
+        #bestText {
+            color: #ff9800;
+            font-size: 0.8em;
+        }
+        #livesPanel {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            display: flex;
+            gap: 5px;
+        }
+        .life {
+            font-size: 1.8em;
+        }
+        #comboText {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff4444;
+            font-size: 1.5em;
+            font-weight: bold;
+            opacity: 0;
+            transition: all 0.2s;
+            text-shadow: 0 0 20px rgba(255,68,68,0.8);
+        }
+        #gameOverPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            background: rgba(0,0,0,0.9);
+            padding: 25px 35px;
+            border-radius: 20px;
+            border: 3px solid #ff4444;
+            text-align: center;
+            display: none;
+        }
+        #gameOverPanel h2 {
+            color: #ff4444;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        #gameOverPanel p {
+            color: #fff;
+            font-size: 1.2em;
+            margin: 5px 0;
+        }
+        #gameOverPanel button {
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #ff9800;
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        #startMsg {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            color: #fff;
+            font-size: 1.2em;
+            text-align: center;
+            text-shadow: 0 0 15px rgba(255,255,255,0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div id="scorePanel">
+            <div id="scoreText">0</div>
+            <div id="bestText">🏆 أفضل: 0</div>
+        </div>
+        <div id="livesPanel">
+            <span class="life">❤️</span>
+            <span class="life">❤️</span>
+            <span class="life">❤️</span>
+        </div>
+        <div id="comboText"></div>
+        <div id="gameOverPanel">
+            <h2>💀 خسرت!</h2>
+            <p>نتيجتك: <span id="finalScore">0</span></p>
+            <p>🏆 أفضل: <span id="finalBest">0</span></p>
+            <button id="restartBtn">🔄 العب تاني</button>
+        </div>
+        <div id="startMsg">👆 المس الشاشة لتقطيع الفواكه</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ==================== حجم الشاشة ====================
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // ==================== متغيرات اللعبة ====================
+        let fruits = [];
+        let bombs = [];
+        let particles = [];
+        let slices = [];
+        let score = 0;
+        let bestScore = parseInt(localStorage.getItem('fruitBest') || '0');
+        let lives = 3;
+        let combo = 0;
+        let comboTimer = 0;
+        let gameRunning = true;
+        let gameOver = false;
+        let spawnTimer = 0;
+        let difficulty = 1;
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        let prevMouseX = mouseX;
+        let prevMouseY = mouseY;
+        let slicing = false;
+
+        // ==================== فواكه ====================
+        const fruitTypes = [
+            { name: '🍉', color: '#4caf50', radius: 35, points: 1, emoji: '🍉' },
+            { name: '🍎', color: '#f44336', radius: 28, points: 1, emoji: '🍎' },
+            { name: '🍊', color: '#ff9800', radius: 30, points: 1, emoji: '🍊' },
+            { name: '🍋', color: '#ffeb3b', radius: 25, points: 2, emoji: '🍋' },
+            { name: '🍇', color: '#9c27b0', radius: 22, points: 2, emoji: '🍇' },
+            { name: '🥝', color: '#8bc34a', radius: 27, points: 3, emoji: '🥝' },
+            { name: '🍑', color: '#ff8a80', radius: 30, points: 2, emoji: '🍑' },
+            { name: '🍓', color: '#e91e63', radius: 20, points: 3, emoji: '🍓' }
+        ];
+
+        // ==================== فئة الفاكهة ====================
+        class Fruit {
+            constructor(type) {
+                this.type = type;
+                this.x = Math.random() * (canvas.width - 100) + 50;
+                this.y = canvas.height + 50;
+                this.vy = -(8 + Math.random() * 10);
+                this.vx = (Math.random() - 0.5) * 6;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+                this.sliced = false;
+                this.sliceAngle = 0;
+                this.gravity = 0.35;
+            }
+            update() {
+                if (!this.sliced) {
+                    this.vy += this.gravity;
+                    this.y += this.vy;
+                    this.x += this.vx;
+                    this.rotation += this.rotationSpeed;
+                    if (this.x < 0) this.x = canvas.width;
+                    if (this.x > canvas.width) this.x = 0;
+                }
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                if (this.sliced) {
+                    const half = this.type.radius;
+                    ctx.save();
+                    ctx.translate(-half * 0.3, -half * 0.2);
+                    ctx.rotate(this.sliceAngle - 0.3);
+                    ctx.font = `${this.type.radius * 2}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.type.emoji, 0, 0);
+                    ctx.restore();
+                    ctx.save();
+                    ctx.translate(half * 0.3, half * 0.2);
+                    ctx.rotate(-this.sliceAngle + 0.3);
+                    ctx.font = `${this.type.radius * 2}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.type.emoji, 0, 0);
+                    ctx.restore();
+                } else {
+                    ctx.rotate(this.rotation);
+                    ctx.font = `${this.type.radius * 2}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.type.emoji, 0, 0);
+                    // لمعان
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.beginPath();
+                    ctx.arc(-5, -5, this.type.radius * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // ==================== فئة القنبلة ====================
+        class Bomb {
+            constructor() {
+                this.x = Math.random() * (canvas.width - 100) + 50;
+                this.y = canvas.height + 50;
+                this.vy = -(8 + Math.random() * 10);
+                this.vx = (Math.random() - 0.5) * 6;
+                this.radius = 30;
+                this.exploded = false;
+                this.gravity = 0.35;
+            }
+            update() {
+                if (!this.exploded) {
+                    this.vy += this.gravity;
+                    this.y += this.vy;
+                    this.x += this.vx;
+                }
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                if (this.exploded) {
+                    ctx.font = '60px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('💥', 0, 0);
+                } else {
+                    ctx.font = '55px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('💣', 0, 0);
+                }
+                ctx.restore();
+            }
+        }
+
+        // ==================== جسيمات ====================
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10 - 5;
+                this.life = 1;
+                this.color = color;
+                this.size = 3 + Math.random() * 8;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.3;
+                this.life -= 0.03;
+            }
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // ==================== قطع ====================
+        class Slice {
+            constructor(x1, y1, x2, y2) {
+                this.x1 = x1;
+                this.y1 = y1;
+                this.x2 = x2;
+                this.y2 = y2;
+                this.life = 1;
+            }
+            update() {
+                this.life -= 0.06;
+            }
+            draw(ctx) {
+                ctx.strokeStyle = `rgba(255,255,255,${this.life})`;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(this.x1, this.y1);
+                ctx.lineTo(this.x2, this.y2);
+                ctx.stroke();
+            }
+        }
+
+        // ==================== إضافة فاكهة ====================
+        function spawnFruit() {
+            const type = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+            fruits.push(new Fruit(type));
+        }
+
+        function spawnBomb() {
+            bombs.push(new Bomb());
+        }
+
+        // ==================== تقطيع ====================
+        function checkSlice(x1, y1, x2, y2) {
+            // فواكه
+            for (let fruit of fruits) {
+                if (fruit.sliced) continue;
+                const dist = pointToLineDistance(fruit.x, fruit.y, x1, y1, x2, y2);
+                if (dist < fruit.type.radius) {
+                    fruit.sliced = true;
+                    fruit.sliceAngle = Math.atan2(y2 - y1, x2 - x1);
+                    score += fruit.type.points * (1 + Math.floor(combo / 3));
+                    combo++;
+                    comboTimer = 60;
+                    // جسيمات
+                    for (let i = 0; i < 15; i++) {
+                        particles.push(new Particle(fruit.x, fruit.y, fruit.type.color));
+                    }
+                    if (combo >= 5) {
+                        showCombo();
+                    }
+                }
+            }
+            // قنابل
+            for (let bomb of bombs) {
+                if (bomb.exploded) continue;
+                const dist = pointToLineDistance(bomb.x, bomb.y, x1, y1, x2, y2);
+                if (dist < bomb.radius) {
+                    bomb.exploded = true;
+                    lives--;
+                    combo = 0;
+                    updateLives();
+                    for (let i = 0; i < 30; i++) {
+                        particles.push(new Particle(bomb.x, bomb.y, '#ff4444'));
+                    }
+                    if (lives <= 0) endGame();
+                }
+            }
+        }
+
+        function pointToLineDistance(px, py, x1, y1, x2, y2) {
+            const A = px - x1;
+            const B = py - y1;
+            const C = x2 - x1;
+            const D = y2 - y1;
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            let param = -1;
+            if (lenSq !== 0) param = dot / lenSq;
+            let xx, yy;
+            if (param < 0) { xx = x1;
+                yy = y1; } else if (param > 1) { xx = x2;
+                yy = y2; } else { xx = x1 + param * C;
+                yy = y1 + param * D; }
+            return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2);
+        }
+
+        function showCombo() {
+            const el = document.getElementById('comboText');
+            el.textContent = `🔥 كومبو ×${combo}!`;
+            el.style.opacity = '1';
+            el.style.transform = 'translateX(-50%) scale(1.5)';
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(-50%) scale(1)';
+            }, 500);
+        }
+
+        function updateLives() {
+            const panel = document.getElementById('livesPanel');
+            panel.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const span = document.createElement('span');
+                span.className = 'life';
+                span.textContent = i < lives ? '❤️' : '🖤';
+                panel.appendChild(span);
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            gameOver = true;
+            document.getElementById('gameOverPanel').style.display = 'block';
+            document.getElementById('finalScore').textContent = score;
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('fruitBest', bestScore);
+            }
+            document.getElementById('finalBest').textContent = bestScore;
+            document.getElementById('startMsg').style.display = 'none';
+        }
+
+        function restartGame() {
+            fruits = [];
+            bombs = [];
+            particles = [];
+            slices = [];
+            score = 0;
+            lives = 3;
+            combo = 0;
+            comboTimer = 0;
+            gameRunning = true;
+            gameOver = false;
+            difficulty = 1;
+            spawnTimer = 0;
+            document.getElementById('gameOverPanel').style.display = 'none';
+            document.getElementById('scoreText').textContent = '0';
+            document.getElementById('bestText').textContent = `🏆 أفضل: ${bestScore}`;
+            document.getElementById('startMsg').style.display = 'block';
+            updateLives();
+        }
+
+        // ==================== تحديث ====================
+        function update() {
+            if (!gameRunning) return;
+
+            spawnTimer++;
+            if (spawnTimer > Math.max(10, 35 - difficulty)) {
+                spawnTimer = 0;
+                if (Math.random() < 0.8) spawnFruit();
+                else spawnBomb();
+                if (difficulty < 30) difficulty += 0.05;
+            }
+
+            if (comboTimer > 0) {
+                comboTimer--;
+                if (comboTimer <= 0) combo = 0;
+            }
+
+            for (let fruit of fruits) fruit.update();
+            for (let bomb of bombs) bomb.update();
+            for (let particle of particles) particle.update();
+            for (let slice of slices) slice.update();
+
+            fruits = fruits.filter(f => f.y < canvas.height + 100 && !(f.sliced && f.y > canvas.height + 50));
+            bombs = bombs.filter(b => b.y < canvas.height + 100);
+            particles = particles.filter(p => p.life > 0);
+            slices = slices.filter(s => s.life > 0);
+
+            document.getElementById('scoreText').textContent = score;
+        }
+
+        // ==================== رسم ====================
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // خلفية
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a237e');
+            gradient.addColorStop(0.5, '#311b92');
+            gradient.addColorStop(1, '#4a148c');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // نجوم صغيرة
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            for (let i = 0; i < 40; i++) {
+                const sx = (i * 137.5 + 50) % canvas.width;
+                const sy = (i * 97.3 + 30) % canvas.height;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // خشبة التقطيع
+            ctx.fillStyle = '#5d4037';
+            ctx.fillRect(0, canvas.height - 15, canvas.width, 15);
+            ctx.fillStyle = '#795548';
+            ctx.fillRect(0, canvas.height - 15, canvas.width, 4);
+            ctx.fillStyle = '#3e2723';
+            ctx.fillRect(0, canvas.height - 3, canvas.width, 3);
+
+            for (let fruit of fruits) fruit.draw(ctx);
+            for (let bomb of bombs) bomb.draw(ctx);
+            for (let particle of particles) particle.draw(ctx);
+            for (let slice of slices) slice.draw(ctx);
+        }
+
+        // ==================== حلقة اللعبة ====================
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== أحداث اللمس ====================
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameOver) return;
+            slicing = true;
+            const touch = e.touches[0];
+            prevMouseX = touch.clientX;
+            prevMouseY = touch.clientY;
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+            document.getElementById('startMsg').style.display = 'none';
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!slicing || gameOver) return;
+            const touch = e.touches[0];
+            prevMouseX = mouseX;
+            prevMouseY = mouseY;
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+            slices.push(new Slice(prevMouseX, prevMouseY, mouseX, mouseY));
+            checkSlice(prevMouseX, prevMouseY, mouseX, mouseY);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            slicing = false;
+        });
+
+        // ==================== فأرة (للتجربة على كمبيوتر) ====================
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameOver) return;
+            slicing = true;
+            prevMouseX = e.clientX;
+            prevMouseY = e.clientY;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            document.getElementById('startMsg').style.display = 'none';
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!slicing || gameOver) return;
+            prevMouseX = mouseX;
+            prevMouseY = mouseY;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            slices.push(new Slice(prevMouseX, prevMouseY, mouseX, mouseY));
+            checkSlice(prevMouseX, prevMouseY, mouseX, mouseY);
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            slicing = false;
+        });
+
+        // ==================== زر الإعادة ====================
+        document.getElementById('restartBtn').addEventListener('click', restartGame);
+        document.getElementById('restartBtn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            restartGame();
+        }, { passive: false });
+
+        // ==================== بدء ====================
+        document.getElementById('bestText').textContent = `🏆 أفضل: ${bestScore}`;
+        updateLives();
+        gameLoop();
+
+        console.log('🍉 لعبة تقطيع الفواكه جاهزة!');
+        console.log('👆 المس الشاشة واسحب للتقطيع');
+        console.log('💣 تجنب القنابل السوداء');
+        console.log('🔥 كومبو ×5 يعطيك نقاط إضافية');
+    </script>
+</body>
+</html>
